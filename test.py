@@ -32,10 +32,10 @@ class ParsingTest(unittest.TestCase):
         """
                 xdb->ram->xdb
         """
-        xdb2ram = XdbToRam('source/tasks.xdb')
+        xdb2ram = XdbToRam('source/tasks.xml')
         schema = xdb2ram.parse()
         ram2xdb = RamToXdb('test1.xml', schema)
         ram2xdb.generate()
-        diffs = self.compare('source/tasks.xdb', 'test1.xml')
+        diffs = self.compare('source/tasks.xml', 'test1.xml')
         equal = True if diffs == "" else False
         self.assertTrue(equal, msg=diffs)
