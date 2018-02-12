@@ -1,7 +1,8 @@
 import unittest
 from codecs import open as open
 
-
+from dbd_to_ram import DbdToRam
+from ram_to_dbd import RamToDbd
 from ram_to_xdb import RamToXdb
 from xdb_to_ram import XdbToRam
 
@@ -28,12 +29,16 @@ class ParsingTest(unittest.TestCase):
             result_file.close()
             return diffs
 
-    def test_parsing(self):
+    def test_downloading(self):
         """
-                xdb->ram->xdb
+                xdb->ram->dbd->ram->xdb
         """
         xdb2ram = XdbToRam('source/tasks.xml')
         schema = xdb2ram.parse()
+        ram2dbd = RamToDbd('test_db1.db', schema)
+        ram2dbd.generate()
+        dbd2ram = DbdToRam('test_db1.db')
+        schema = dbd2ram.parse()
         ram2xdb = RamToXdb('test1.xml', schema)
         ram2xdb.generate()
         diffs = self.compare('source/tasks.xml', 'test1.xml')
