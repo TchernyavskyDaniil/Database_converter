@@ -1,8 +1,8 @@
+
 class RamToPgDdl:
-    def __init__(self, file, ram_model):
+    def __init__(self, ram_model):
 
         self.schema = ram_model
-        self.filename = file
 
         self.constraint_id = 0
         self.index_id = 0
@@ -18,25 +18,37 @@ class RamToPgDdl:
 
         return self.ddl
 
-    def write_to_file(self):
+    def write_to_file(self,filename):
 
-        with open(self.filename, "w", encoding='utf-8') as f:
+        with open(filename, "w", encoding='utf-8') as f:
             f.write(self.ddl)
+
+    def write(self, query):
+        self.ddl+=query
+        self.ddl+="\n"
 
     @staticmethod
     def ram_types_to_pg(data_type):
-        if data_type == 'STRING':
+        data_type = data_type.upper()
+        if data_type in ['STRING', 'MEMO','FIXEDCHAR', 'SYSNAME', 'NVARCHAR', 'VARCHAR']:
             return 'VARCHAR'
+        elif data_type in ['UNIQUEIDENTIFIER', 'MONEY', 'SQL_VARIANT', 'BIT']:
+            return 'varchar(200)'
+
         elif data_type == 'SMALLINT':
             return 'SMALLINT'
-        elif data_type == 'INTEGER':
+        elif data_type in ['INTEGER' , 'INT']:
             return 'INTEGER'
-        elif data_type == 'WORD':
+        elif data_type == 'BIGINT':
+            return 'BIGINT'
+        elif data_type in ['WORD','TINYINT']:
             return 'SMALLINT'
         elif data_type == 'BOOLEAN':
             return 'BOOLEAN'
         elif data_type == 'FLOAT':
             return 'FLOAT'
+        elif data_type  in ['FLOAT', 'REAL']:
+            return 'REAL'
         elif data_type == 'CURRENCY':
             return 'NUMERIC'
         elif data_type == 'BCD':
@@ -53,13 +65,9 @@ class RamToPgDdl:
             return 'BYTEA'
         elif data_type == 'VARBYTES':
             return 'BYTEA'
-        elif data_type == 'BLOB':
+        elif data_type in ['BLOB' ,'GRAPHIC']:
             return 'BYTEA'
-        elif data_type == 'MEMO':
-            return 'TEXT'
-        elif data_type == 'GRAPHIC':
-            return 'BYTEA'
-        elif data_type == 'FMTMEMO':
+        elif data_type in ['FMTMEMO','NTEXT', 'NCHAR', 'CHAR', 'BLOB', 'VARBINARY', 'BINARY', 'IMAGE']:
             return 'TEXT'
         elif data_type == 'FIXEDCHAR':
             return 'VARCHAR'
@@ -85,49 +93,43 @@ class RamToPgDdl:
             return 'INTERVAL'
         elif data_type == 'BYTE':
             return 'BYTEA'
-
-    def __write(self, string, indent):
-        self.ddl += indent + string + '\n'
-
-    def __new_line(self):
-        self.ddl += '\n\n'
+        elif data_type in ['DATETIME','DATETIMEOFFSET']:
+            return 'timestamp'
+        else:
+            print(data_type)
 
     def __generate_schema(self):
         ddl = "CREATE SCHEMA {};".format(self.schema.name)
-        self.ddl+=ddl
+        self.write(ddl)
 
     def __generate_domains(self):
         for domain in self.schema.domains:
 
             ddl = "CREATE DOMAIN {0}.\"{1}\" AS {2} {3};"
 
-            schema_name = self.schema.name;
+            schema_name = self.schema.name
 
             name = domain.name
             type = self.ram_types_to_pg(domain.type)
-
-            if domain.char_length and str(is_not_empty(domain.char_length)):
+            if type == 'VARCHAR' and str(is_not_empty(domain.char_length)) and domain.char_length!=-1:
                 length = "({0})".format(str(domain.char_length))
             else:
                 length = ""
-
-            self.__write(ddl.format(schema_name, name, type, length), indent='')
-
-            self.__new_line()
-
-        self.ddl += '\n'
+            self.write(ddl.format(schema_name, name, type, length))
+        self.write('\n')
 
     def __generate_tables(self):
         for table in self.schema.tables:
 
-            ddl = "CREATE TABLE {}.\"{}\" ({});\n"
+            ddl = "CREATE TABLE {}.\"{}\" ({});"
 
             fields = ",".join(
                 [self.__generate_fields(
-                    field.name, self.schema.name, field.domain.name)
+                    field.name, self.schema.name, field.domain)
                       for field in table.fields])
             ddl = ddl.format(self.schema.name,table.name, fields)
-            self.ddl+=ddl
+            self.write(ddl)
+        self.write('\n')
 
     def __generate_fields(self,field_name,schema_name,domain):
         return """\"{}\" {}.\"{}\"""" \
@@ -135,59 +137,54 @@ class RamToPgDdl:
 
     def __generate_constraints(self):
         schema_name = self.schema.name
+        foreign = ""
+        primary = ""
         for table in self.schema.tables:
             for constraint in table.constraints:
+                details = []
+                for det in constraint.details:
+                    detail = r'"' + det.value + r'"'
+                    details.append(detail)
 
-                if constraint.kind == 'PRIMARY':
-                    self.ddl += ("ALTER TABLE {}.\"{}\"".format(schema_name,table.name));
-                    self.ddl += "\t ADD "
-                    items = constraint.items.replace(' ', '').replace(',', '","')
-                    self.ddl += ("PRIMARY KEY (\"%s\");" % items)
+                if constraint.kind.lower() == 'primary':
+                    str = """PRIMARY KEY ({})""" \
+                        .format(', '.join(details))
+                    primary += """ALTER TABLE {}."{}" ADD {};\n""" \
+                        .format(schema_name, table.name, str)
 
-                    self.ddl += '\n\n'
+                elif constraint.kind.lower() == 'foreign':
+                    str = """FOREIGN KEY ({}) REFERENCES {}."{}" DEFERRABLE""" \
+                        .format(', '.join(details), schema_name,
+                                constraint.reference, constraint.name)
+                    foreign+= """ALTER TABLE {}."{}" ADD {};\n""" \
+                        .format(schema_name, table.name, str)
 
-        for table in self.schema.tables:
-            schema_name = self.schema.name
-            for constraint in table.constraints:
-                if constraint.kind == 'FOREIGN':
-                    self.ddl += ("ALTER TABLE {}.\"{}\"".format(schema_name,table.name));
-                    constraint_name = constraint.name if constraint.name is not None else self.__get_constraint_name()
-                    self.ddl += "\t ADD CONSTRAINT {0} ".format(constraint_name)
-                    self.ddl += (
-                        "FOREIGN KEY (\"{}\") REFERENCES {}.\"{}\"{}" .format(
-                            constraint.items, schema_name, constraint.reference,
-                            " ON DELETE CASCADE;" if (
-                                constraint.cascading_delete or constraint.full_cascading_delete) else ";"
-                        )
-                    )
-                    self.ddl += '\n\n'
+                else:
+                    return ''
+        self.write(primary + foreign)
 
     def __generate_indexes(self):
         schema_name = self.schema.name
         for table in self.schema.tables:
             for index in table.indexes:
-                items = index.field.replace(' ', '').replace(',', '","')
+                details = []
+                for det in index.details:
+                    detail = '\"' + det.value + '\"'
+                    if det.expression:
+                        detail += ' (' + det.expression + ')'
+                    if not det.descend:
+                        detail += ' ASC'
+                    else:
+                        detail += det.descend.upper()
+                    details.append(detail)
 
-                ddl =  ("CREATE {} INDEX \"{}_{}_idx\" ON {}.\"{}\"(\"{}\");\n\n"
-                             .format(
-                                 "UNIQUE " if index.uniqueness else "",
+                if len(details) == 0:
+                    return ''
 
-                                 table.name,
-                                 items.replace(' ', '').replace('"', '').replace(',', '_'),
-                                schema_name,
-                                 table.name,
-                                 items
-
-                             )
-                    )
-                self.ddl += ddl
-    def __get_constraint_name(self):
-        self.constraint_id += 1
-        return 'constraint_' + str(self.constraint_id)
-
-    def __get_index_name(self):
-        self.index_id += 1
-        return 'index_' + str(self.index_id)
+                ddl = """CREATE INDEX {} ON {}."{}"({});""" \
+                    .format('"' + index.name + table.name + '"' if index.name else '',
+                            schema_name, table.name, ', '.join(details))
+                self.write(ddl)
 
 
 def is_not_empty(value):

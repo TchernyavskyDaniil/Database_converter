@@ -123,6 +123,12 @@ class Field:
         equal = equal and self.rname == other.rname
         return equal
 
+class IndexDetail:
+    def __init__(self):
+        self.value = None
+        self.expression = None
+        self.descend = None
+
 
 class Index:
     def __init__(self):
@@ -139,6 +145,7 @@ class Index:
         self.direction = None
         self.descend = None
 
+        self.details = []
 
 class Constraint:
     def __init__(self):
@@ -149,6 +156,14 @@ class Constraint:
         self.expression = None
 
         # Props
+        self.unique_key_id = None
         self.has_value_edit = None
         self.cascading_delete = None
         self.full_cascading_delete = None
+
+        self.details = []
+
+
+class ConstraintDetail:
+    def __init__(self):
+        self.value = None

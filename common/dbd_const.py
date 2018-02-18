@@ -322,9 +322,7 @@ SQL_DBD_INIT = SQL_DBD_PRE_INIT + SQL_DBD_DOMAINS_TABLE_INIT + \
 
 
 SQL_GET_SCHEMA_PROPS = """
-SELECT
-    dbd$schemas.name,
-FROM dbd$schemas
+SELECT name FROM dbd$schemas
 """
 
 
