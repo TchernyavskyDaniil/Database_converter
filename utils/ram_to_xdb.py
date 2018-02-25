@@ -189,24 +189,23 @@ class RamToXdb:
                 domain = field.domain
 
                 # Если домен именованный - заполняем атрибут поля
-                if not domain.unnamed:
+                if domain.name:
                     current_field.setAttribute('domain', str(domain.name))
                 # Иначе заполняем все свойства домена для текущего поля
                 else:
-                    if is_not_empty(domain.description):
-                        current_field.setAttribute('domain.description', str(domain.description))
+
+                    if is_not_empty(domain.char_length):
+                        current_field.setAttribute('domain.char_length', str(domain.char_length))
 
                     if is_not_empty(domain.type):
                         current_field.setAttribute('domain.type', str(domain.type))
 
-                    if is_not_empty(domain.align):
-                        current_field.setAttribute('domain.align', str(domain.align))
+                    if is_not_empty(domain.scale):
+                        current_field.setAttribute('domain.scale', str(domain.scale))
 
                     if is_not_empty(domain.width):
                         current_field.setAttribute('domain.width', str(domain.width))
 
-                    if is_not_empty(domain.length):
-                        current_field.setAttribute('domain.length', str(domain.length))
 
                     if is_not_empty(domain.precision):
                         current_field.setAttribute('domain.precision', str(domain.precision))

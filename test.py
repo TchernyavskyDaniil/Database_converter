@@ -3,8 +3,9 @@ from codecs import open as open
 
 from dbd_to_ram import DbdToRam
 from ram_to_dbd import RamToDbd
-from ram_to_xdb import RamToXdb
 from xdb_to_ram import XdbToRam
+
+from utils.ram_to_xdb import RamToXdb
 
 
 class ParsingTest(unittest.TestCase):
@@ -33,14 +34,14 @@ class ParsingTest(unittest.TestCase):
         """
                 xdb->ram->dbd->ram->xdb
         """
-        xdb2ram = XdbToRam('source/tasks.xml')
+        xdb2ram = XdbToRam('D:/dankaloh/Database_converter/source/tasks.xml')
         schema = xdb2ram.parse()
         ram2dbd = RamToDbd('test_db1.db', schema)
-        ram2dbd.generate()
+        ram2dbd.generate(False)
         dbd2ram = DbdToRam('test_db1.db')
         schema = dbd2ram.parse()
         ram2xdb = RamToXdb('test1.xml', schema)
-        ram2xdb.generate()
-        diffs = self.compare('source/tasks.xml', 'test1.xml')
+        ram2xdb.generate(False)
+        diffs = self.compare('D:/dankaloh/Database_converter/source/tasks.xml', 'test1.xml')
         equal = True if diffs == "" else False
         self.assertTrue(equal, msg=diffs)

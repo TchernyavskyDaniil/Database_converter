@@ -1,3 +1,5 @@
+from common.ram import Domain
+
 
 class RamToPgDdl:
     def __init__(self, ram_model):
@@ -9,12 +11,16 @@ class RamToPgDdl:
 
         self.ddl = ""
 
-    def generate(self):
+    def generate(self, mssql):
         self.__generate_schema()
         self.__generate_domains()
         self.__generate_tables()
-        self.__generate_constraints()
         self.__generate_indexes()
+        if mssql:
+            self._generate_primary()
+            self._generate_foreign()
+        else:
+            self.__generate_constraints()
 
         return self.ddl
 
@@ -32,7 +38,7 @@ class RamToPgDdl:
         data_type = data_type.upper()
         if data_type in ['STRING', 'MEMO','FIXEDCHAR', 'SYSNAME', 'NVARCHAR', 'VARCHAR']:
             return 'VARCHAR'
-        elif data_type in ['UNIQUEIDENTIFIER', 'MONEY', 'SQL_VARIANT', 'BIT']:
+        elif data_type in ['UNIQUEIDENTIFIER','VARCHAR(200)', 'MONEY', 'SQL_VARIANT', 'BIT']:
             return 'varchar(200)'
 
         elif data_type == 'SMALLINT':
@@ -71,7 +77,7 @@ class RamToPgDdl:
             return 'TEXT'
         elif data_type == 'FIXEDCHAR':
             return 'VARCHAR'
-        elif data_type == 'WIDESTRING':
+        elif data_type in ['WIDESTRING','TEXT']:
             return 'TEXT'
         elif data_type == 'LARGEINT':
             return 'BIGINT'
@@ -111,7 +117,7 @@ class RamToPgDdl:
 
             name = domain.name
             type = self.ram_types_to_pg(domain.type)
-            if type == 'VARCHAR' and str(is_not_empty(domain.char_length)) and domain.char_length!=-1:
+            if type == 'VARCHAR' and domain.char_length is not None and str(is_not_empty(domain.char_length)) and domain.char_length!=-1:
                 length = "({0})".format(str(domain.char_length))
             else:
                 length = ""
@@ -132,8 +138,33 @@ class RamToPgDdl:
         self.write('\n')
 
     def __generate_fields(self,field_name,schema_name,domain):
-        return """\"{}\" {}.\"{}\"""" \
-            .format(field_name, schema_name, domain)
+        if type(domain) is Domain:
+            domainstr = self.ram_types_to_pg(domain.type)
+            return """\n{} {}""".format(field_name, domainstr)
+        else:
+            return """\"{}\" {}.\"{}\"""" \
+                .format(field_name, schema_name, domain)
+
+    def _generate_primary(self):
+        ddl = ""
+        for table in self.schema.tables:
+            prim = []
+            for c in table.constraints:
+                if c.kind.lower() == 'primary':
+                    prim.append(c.items)
+            ddl+="""ALTER TABLE {}."{}" ADD {} ({});\n """ \
+                .format(self.schema.name, table.name, "PRIMARY KEY", ','.join(prim))
+        self.write(ddl)
+
+    def _generate_foreign(self):
+        f = ''
+        for table in self.schema.tables:
+            for c in table.constraints:
+                if c.kind.lower() == 'foreign':
+                    f += """ALTER TABLE {}."{}"  ADD {} ({}) REFERENCES {}.\"{}\";\n""" \
+                        .format(self.schema.name, table.name, "FOREIGN KEY", c.items, self.schema.name, c.reference)
+
+        self.write(f)
 
     def __generate_constraints(self):
         schema_name = self.schema.name
@@ -148,13 +179,13 @@ class RamToPgDdl:
 
                 if constraint.kind.lower() == 'primary':
                     str = """PRIMARY KEY ({})""" \
-                        .format(', '.join(details))
+                        .format(constraint.items)
                     primary += """ALTER TABLE {}."{}" ADD {};\n""" \
                         .format(schema_name, table.name, str)
 
                 elif constraint.kind.lower() == 'foreign':
                     str = """FOREIGN KEY ({}) REFERENCES {}."{}" DEFERRABLE""" \
-                        .format(', '.join(details), schema_name,
+                        .format(constraint.items, schema_name,
                                 constraint.reference, constraint.name)
                     foreign+= """ALTER TABLE {}."{}" ADD {};\n""" \
                         .format(schema_name, table.name, str)
@@ -164,27 +195,21 @@ class RamToPgDdl:
         self.write(primary + foreign)
 
     def __generate_indexes(self):
-        schema_name = self.schema.name
+        ddl = ""
+
         for table in self.schema.tables:
+            ind = []
             for index in table.indexes:
-                details = []
-                for det in index.details:
-                    detail = '\"' + det.value + '\"'
-                    if det.expression:
-                        detail += ' (' + det.expression + ')'
-                    if not det.descend:
-                        detail += ' ASC'
-                    else:
-                        detail += det.descend.upper()
-                    details.append(detail)
+                if index.uniqueness:
+                    ind.append(index.field)
+                else:
+                    ddl += """CREATE INDEX  ON {}."{}" ({});\n""".format(
+                        self.schema.name, table.name, index.field)
+            self.write("""CREATE UNIQUE INDEX  ON {}."{}" ({});\n""".format(
+                    self.schema.name, table.name, ','.join(ind)) + ddl)
 
-                if len(details) == 0:
-                    return ''
 
-                ddl = """CREATE INDEX {} ON {}."{}"({});""" \
-                    .format('"' + index.name + table.name + '"' if index.name else '',
-                            schema_name, table.name, ', '.join(details))
-                self.write(ddl)
+        self.write(ddl)
 
 
 def is_not_empty(value):
