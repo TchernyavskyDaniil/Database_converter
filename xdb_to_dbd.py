@@ -7,6 +7,8 @@ if __name__ == "__main__":
     program = 'DataBaseConverter'
     description = """Программа для преобразования XDB-описателя в DBD-описатель."""
 
+
+
     argparser = argparse.ArgumentParser(prog=program, description=description)
     argparser.add_argument('-f', '--file', type=str, default='source/tasks.xml',
                            help='Конвертирование XDB -> DBD. Результат - файл .db',
@@ -14,7 +16,7 @@ if __name__ == "__main__":
     argparser.add_argument('-db', type=str, default='source/test_db.db',
                            help='Конвертирование XDB -> DBD. Результат - файл .db',
                            metavar='db.db - результат работы программы')
-
+    
     arguments = argparser.parse_args()
 
     xdb_file = arguments.file  # XDB-файл, поданый на вход
