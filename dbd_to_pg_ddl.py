@@ -1,5 +1,7 @@
 import argparse
 import postgresql
+
+from common.const import *
 from utils.dbd_to_ram import DbdToRam
 from utils.ram_to_pg_ddl import RamToPgDdl
 from utils.xdb_to_ram import XdbToRam
@@ -13,8 +15,8 @@ if __name__ == "__main__":
     argparser.add_argument('-db', type=str, help='Файл базы данных')
     argparser.add_argument('-xml', type=str, help='Файл xml представления метаданных')
     argparser.add_argument('-ddl', type=str, help='Путь к результирующему файлу DDL')
-    argparser.add_argument('-url', type=str, help='URL подсключения к Postgresql базе', default="pq://postgres:123@localhost:5432")
-    argparser.add_argument('-db_name', type=str, help='Имя postgres базы', default="test")
+    argparser.add_argument('-url', type=str, help='URL подсключения к Postgresql базе', default=PG_CON_URL)
+    argparser.add_argument('-db_name', type=str, help='Имя postgres базы', default=DEFAULT_PG_DB)
 
     arguments = argparser.parse_args()
 

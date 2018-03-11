@@ -3,6 +3,7 @@ import logging
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
+from common.const import *
 from utils.mssql_to_ram import MssqlToRam
 from utils.ram_to_pg_ddl import RamToPgDdl
 from utils.ram_to_xdb import RamToXdb
@@ -14,12 +15,12 @@ if __name__ == "__main__":
     argparser = argparse.ArgumentParser(prog=program, description=description)
     argparser.add_argument('-ddl', type=str, help='Путь к результирующему файлу DDL')
     argparser.add_argument('-xml', type=str, help='Путь к результирующему файлу XML')
-    argparser.add_argument("-pg_user", type=str, help='Пользователь Postgresql базы', default='postgres')
-    argparser.add_argument("-pg_pwd", type=str, help='Пароль Postgresql базы', default='123')
+    argparser.add_argument("-pg_user", type=str, help='Пользователь Postgresql базы', default=DEFAULT_PG_USER)
+    argparser.add_argument("-pg_pwd", type=str, help='Пароль Postgresql базы', default=DEFAULT_PG_USER_PWD)
 
-    argparser.add_argument('-mssql_url', type=str, help='URL подсключения к MSSQL базе', default='Driver={ODBC Driver 13 for SQL Server};Server=localhost\SQLEXPRESS;Database=Northwind;Trusted_Connection=yes;')
-    argparser.add_argument('-db_name', type=str, help='Имя postgres базы', default="northwindtest")
-    argparser.add_argument('-log', type=str, default='reports/transfering.log')
+    argparser.add_argument('-mssql_url', type=str, help='URL подсключения к MSSQL базе', default=MSSQL_CON_URL)
+    argparser.add_argument('-db_name', type=str, help='Имя postgres базы', default=DEFAULT_MSSQL_DB)
+    argparser.add_argument('-log', type=str, default=LOG_PATH)
 
     arguments = argparser.parse_args()
     ddl_path = arguments.ddl  # Путь где сохрянятся DDL инструкции
@@ -30,8 +31,7 @@ if __name__ == "__main__":
     user = arguments.pg_user
     pwd = arguments.pg_pwd
 
-    logging.basicConfig(filename=logger_path, level=logging.DEBUG)
-    logger = logging.getLogger()
+
     mssql = MssqlToRam(mssql_url)
 
     schemas = mssql.load('dbo')
@@ -58,6 +58,6 @@ if __name__ == "__main__":
 
     conn.close()
 
-    transfering = DataTransfering(db_name, user, pwd , mssql_url)
-    transfering.start(schemas,logger)
+    transfering = DataTransfering(db_name, user, pwd , mssql_url,logger_path)
+    transfering.start(schemas)
     print("Finish")
