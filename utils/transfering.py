@@ -20,17 +20,16 @@ class DataTransfering:
         self.pg_cur = self.pg_con.cursor()
         self.df = "%Y.%m.%d %H:%M:%S"
         log_fh = open(logger_path, "w", encoding="utf-8")
-        logging.basicConfig(filename=logger_path, level=logging.DEBUG,
-                            datefmt="%Y.%m.%d %H:%M:%S"
-                            )
+        logging.basicConfig(filename=logger_path, level=logging.DEBUG)
+        self.log = logging.getLogger("DataTransfering")
 
         logging._defaultFormatter = logging.Formatter("%(message)s")
         ch = logging.StreamHandler(log_fh)
         ch.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s.%(levelname)s.%(message)s')
+        formatter = logging.Formatter('%(asctime)s:%(msecs)d-%(name)s-%(levelname)s: %(message)s')
         formatter.default_msec_format = '%s.%03d'
+        formatter.datefmt="%d.%m.%Y %H:%M:%S"
         ch.setFormatter(formatter)
-        self.log = logging.getLogger()
         self.log.addHandler(ch)
 
     def start(self,schema):
@@ -43,7 +42,7 @@ class DataTransfering:
 
         self.pg_cur.execute('SET CONSTRAINTS ALL DEFERRED;')
         for table in schema.tables:
-            self.log.info("Начата обработка таблицы")
+            self.log.info("Начата обработка таблицы {}".format(table.name))
 
             self.cursor.execute('BEGIN TRANSACTION;')
             self.pg_cur.execute("ALTER TABLE {}.\"{}\" DISABLE TRIGGER ALL;\n".format(schema.name, table.name))
@@ -70,20 +69,25 @@ class DataTransfering:
                           .format(count))
         self.pg_cur.execute('COMMIT TRANSACTION;')
         end_time = datetime.now()
-        mess = ""
         diff = end_time - start_time
-
-        mess += self.cut(diff.total_seconds()/360,'ч')
-        mess += self.cut(diff.total_seconds()/60,'м')
-        mess += self.cut(diff.total_seconds(),'с')
-        mess += self.cut(diff.total_seconds() * 1000,"мс")
-        self.log.info('Время выполнения переноса данных: {}'.format(mess))
+        days, hours, minutes, seconds = self.convert_to_d_h_m_s(diff.total_seconds())
+        mess = "Время выполнения переноса данных: {0}д, {1}ч, {2}м, {3}с".format(days, hours, minutes, seconds)
+        self.log.info(mess)
 
     def cut(self, val, s):
         if int(val)>0:
             return '{0:.0f}{1} '.format(val,s)
         else:
             return ''
+
+    def convert_to_d_h_m_s(self,seconds):
+
+        minutes, seconds = divmod(seconds, 60)
+        hours, minutes = divmod(minutes, 60)
+        days, hours = divmod(hours, 24)
+
+        return int(days), int(hours), int(minutes), int(seconds)
+
 
     def select_query(self,schema,table):
         fields = []
