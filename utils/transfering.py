@@ -5,6 +5,9 @@ import psycopg2
 import pyodbc
 
 from common.const import *
+from utils.time_util import TimeUtil
+
+
 class DataTransfering:
 
 
@@ -70,23 +73,12 @@ class DataTransfering:
         self.pg_cur.execute('COMMIT TRANSACTION;')
         end_time = datetime.now()
         diff = end_time - start_time
-        days, hours, minutes, seconds = self.convert_to_d_h_m_s(diff.total_seconds())
-        mess = "Время выполнения переноса данных: {0}д, {1}ч, {2}м, {3}с".format(days, hours, minutes, seconds)
+        days, hours, minutes, seconds, mills = TimeUtil.parse_diff(diff)
+        mess = "Время выполнения переноса данных: {0}д, {1}ч, {2}м, {3}с, {4}мс".format(days, hours, minutes, seconds,mills)
+
         self.log.info(mess)
 
-    def cut(self, val, s):
-        if int(val)>0:
-            return '{0:.0f}{1} '.format(val,s)
-        else:
-            return ''
 
-    def convert_to_d_h_m_s(self,seconds):
-
-        minutes, seconds = divmod(seconds, 60)
-        hours, minutes = divmod(minutes, 60)
-        days, hours = divmod(hours, 24)
-
-        return int(days), int(hours), int(minutes), int(seconds)
 
 
     def select_query(self,schema,table):
