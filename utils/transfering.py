@@ -12,7 +12,7 @@ class DataTransfering:
 
 
 
-    def __init__(self, db_name, user, pwd, mssql_url,logger_path):
+    def __init__(self, db_name, user, pwd, mssql_url):
         self.db_name = db_name
         # self.pg_server = pg_url
         self.mssql_server = mssql_url
@@ -21,19 +21,8 @@ class DataTransfering:
         self.pg_con = psycopg2.connect("dbname='{}' user='{}' password='{}'".format(db_name,user,pwd))
         self.cursor = self.mssql_con.cursor()
         self.pg_cur = self.pg_con.cursor()
-        self.df = "%Y.%m.%d %H:%M:%S"
-        log_fh = open(logger_path, "w", encoding="utf-8")
-        logging.basicConfig(filename=logger_path, level=logging.DEBUG)
-        self.log = logging.getLogger("DataTransfering")
 
-        logging._defaultFormatter = logging.Formatter("%(message)s")
-        ch = logging.StreamHandler(log_fh)
-        ch.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s:%(msecs)d-%(name)s-%(levelname)s: %(message)s')
-        formatter.default_msec_format = '%s.%03d'
-        formatter.datefmt="%d.%m.%Y %H:%M:%S"
-        ch.setFormatter(formatter)
-        self.log.addHandler(ch)
+        self.log = logging.getLogger("DataTransfering")
 
     def start(self,schema):
         
@@ -62,8 +51,7 @@ class DataTransfering:
                     batch_query += self.insert_query(schema, table, row) + ";\n"
                 self.pg_cur.execute(batch_query)
                 batch_query += 'COMMIT TRANSACTION;\n'
-                self.log.debug("Финиш транзакции загрузки фрагмента"
-                              .format(datetime.now().strftime(self.df)))
+                self.log.debug("Финиш транзакции загрузки фрагмента")
                 batch = self.cursor.fetchmany(COUNT_FETCH_ROWS)
 
             self.pg_cur.execute("ALTER TABLE {}.\"{}\" ENABLE TRIGGER ALL;\n".format(schema.name, table.name))

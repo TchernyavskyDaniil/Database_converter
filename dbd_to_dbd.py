@@ -1,13 +1,17 @@
 import argparse
 import logging
 import psycopg2
+import sys
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 from common.const import *
+from utils.logger_config import init_logging
 from utils.mssql_to_ram import MssqlToRam
 from utils.ram_to_pg_ddl import RamToPgDdl
 from utils.ram_to_xdb import RamToXdb
 from utils.transfering import DataTransfering
+
+
 
 if __name__ == "__main__":
     program = 'DataBaseConverter'
@@ -23,11 +27,16 @@ if __name__ == "__main__":
     argparser.add_argument('-log', type=str, default=LOG_PATH)
 
     arguments = argparser.parse_args()
+    logger_path = arguments.log
+
+    #   инициализация логирования
+    init_logging(logger_path,'DataTransfering')
+
     ddl_path = arguments.ddl  # Путь где сохрянятся DDL инструкции
     mssql_url = arguments.mssql_url
     db_name = arguments.db_name
     xml_path = arguments.xml
-    logger_path = arguments.log
+
     user = arguments.pg_user
     pwd = arguments.pg_pwd
 
@@ -58,6 +67,6 @@ if __name__ == "__main__":
 
     conn.close()
 
-    transfering = DataTransfering(db_name, user, pwd , mssql_url,logger_path)
+    transfering = DataTransfering(db_name, user, pwd , mssql_url)
     transfering.start(schemas)
     print("Finish")
